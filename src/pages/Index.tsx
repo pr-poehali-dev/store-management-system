@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,39 +13,75 @@ import { useToast } from '@/hooks/use-toast';
 interface Product {
   id: number;
   name: string;
-  price: number;
+  price: number | string;
   description: string;
 }
 
 interface Order {
-  id: string;
-  productId: number;
-  productName: string;
+  order_number: string;
+  product_id: number;
+  product_name: string;
+  product_description: string;
+  price: number | string;
   seller: string;
   buyer: string;
-  price: number;
-  date: string;
+  phone: string;
+  additional_info: string;
+  created_at: string;
 }
+
+const PRODUCTS_API = 'https://functions.poehali.dev/3429a1e7-2ca6-4139-86ea-817eec281696';
+const ORDERS_API = 'https://functions.poehali.dev/0f034f86-1ea0-4fee-a3be-acf9acd368ba';
 
 const Index = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
-  const [products, setProducts] = useState<Product[]>([
-    { id: 1, name: 'Товар 1', price: 1000, description: 'Описание товара 1' },
-    { id: 2, name: 'Товар 2', price: 2500, description: 'Описание товара 2' },
-  ]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isProductDialogOpen, setIsProductDialogOpen] = useState(false);
-  const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
   const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false);
   const [searchReceipt, setSearchReceipt] = useState('');
   const [selectedReceipt, setSelectedReceipt] = useState<Order | null>(null);
+  const [receiptText, setReceiptText] = useState('');
   const { toast } = useToast();
 
   const [newProduct, setNewProduct] = useState({ name: '', price: 0, description: '' });
-  const [newOrder, setNewOrder] = useState({ productId: 0, seller: '', buyer: '' });
+  const [newOrder, setNewOrder] = useState({ 
+    productId: 0, 
+    seller: '', 
+    buyer: '', 
+    phone: '', 
+    additionalInfo: '' 
+  });
+
+  const fetchProducts = async () => {
+    try {
+      const response = await fetch(PRODUCTS_API);
+      const data = await response.json();
+      setProducts(data);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    }
+  };
+
+  const fetchOrders = async () => {
+    try {
+      const response = await fetch(ORDERS_API);
+      const data = await response.json();
+      setOrders(data);
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      fetchProducts();
+      fetchOrders();
+    }
+  }, [isLoggedIn]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,67 +93,134 @@ const Index = () => {
     }
   };
 
-  const handleAddProduct = () => {
+  const handleAddProduct = async () => {
     if (newProduct.name && newProduct.price > 0) {
-      const id = products.length > 0 ? Math.max(...products.map(p => p.id)) + 1 : 1;
-      setProducts([...products, { ...newProduct, id }]);
-      setNewProduct({ name: '', price: 0, description: '' });
-      setIsProductDialogOpen(false);
-      toast({ title: 'Товар добавлен', description: 'Новый товар успешно добавлен в систему' });
-    }
-  };
-
-  const handleEditProduct = () => {
-    if (editingProduct) {
-      setProducts(products.map(p => p.id === editingProduct.id ? editingProduct : p));
-      setEditingProduct(null);
-      setIsProductDialogOpen(false);
-      toast({ title: 'Товар обновлен', description: 'Изменения сохранены' });
-    }
-  };
-
-  const handleDeleteProduct = (id: number) => {
-    setProducts(products.filter(p => p.id !== id));
-    toast({ title: 'Товар удален', description: 'Товар удален из системы' });
-  };
-
-  const handleCreateOrder = () => {
-    if (newOrder.productId && newOrder.seller && newOrder.buyer) {
-      const product = products.find(p => p.id === newOrder.productId);
-      if (product) {
-        const orderNumber = `MTV0${orders.length + 1}`;
-        const order: Order = {
-          id: orderNumber,
-          productId: product.id,
-          productName: product.name,
-          seller: newOrder.seller,
-          buyer: newOrder.buyer,
-          price: product.price,
-          date: new Date().toLocaleString('ru-RU'),
-        };
-        setOrders([...orders, order]);
-        setSelectedReceipt(order);
-        setIsOrderDialogOpen(false);
-        setIsReceiptDialogOpen(true);
-        setNewOrder({ productId: 0, seller: '', buyer: '' });
-        toast({ title: 'Заказ создан', description: `Номер заказа: ${orderNumber}` });
+      try {
+        const response = await fetch(PRODUCTS_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newProduct)
+        });
+        await response.json();
+        fetchProducts();
+        setNewProduct({ name: '', price: 0, description: '' });
+        setIsProductDialogOpen(false);
+        toast({ title: 'Товар добавлен', description: 'Новый товар успешно добавлен в систему' });
+      } catch (error) {
+        toast({ title: 'Ошибка', description: 'Не удалось добавить товар', variant: 'destructive' });
       }
     }
   };
 
-  const handleSearchReceipt = () => {
-    const found = orders.find(o => o.id === searchReceipt);
-    if (found) {
-      setSelectedReceipt(found);
-      setIsReceiptDialogOpen(true);
-    } else {
-      toast({ title: 'Чек не найден', description: 'Заказ с таким номером не существует', variant: 'destructive' });
+  const handleEditProduct = async () => {
+    if (editingProduct) {
+      try {
+        await fetch(PRODUCTS_API, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(editingProduct)
+        });
+        fetchProducts();
+        setEditingProduct(null);
+        setIsProductDialogOpen(false);
+        toast({ title: 'Товар обновлен', description: 'Изменения сохранены' });
+      } catch (error) {
+        toast({ title: 'Ошибка', description: 'Не удалось обновить товар', variant: 'destructive' });
+      }
     }
   };
 
-  const handleDeleteReceipt = (id: string) => {
-    setOrders(orders.filter(o => o.id !== id));
-    toast({ title: 'Чек удален', description: 'Заказ удален из системы' });
+  const handleDeleteProduct = async (id: number) => {
+    try {
+      await fetch(`${PRODUCTS_API}?id=${id}`, { method: 'DELETE' });
+      fetchProducts();
+      toast({ title: 'Товар удален', description: 'Товар удален из системы' });
+    } catch (error) {
+      toast({ title: 'Ошибка', description: 'Не удалось удалить товар', variant: 'destructive' });
+    }
+  };
+
+  const generateReceiptText = (order: Order) => {
+    const price = typeof order.price === 'string' ? parseFloat(order.price) : order.price;
+    let text = `━━━━━━━━━━━━━━━━━━━\n`;
+    text += `          ЧЕК ЗАКАЗА\n`;
+    text += `━━━━━━━━━━━━━━━━━━━\n\n`;
+    text += `📦 Заказ: ${order.order_number}\n`;
+    text += `📅 Дата: ${new Date(order.created_at).toLocaleString('ru-RU')}\n\n`;
+    text += `━━━━━━━━━━━━━━━━━━━\n`;
+    text += `ТОВАР:\n`;
+    text += `${order.product_name}\n`;
+    if (order.product_description) {
+      text += `Описание: ${order.product_description}\n`;
+    }
+    text += `\n💰 Стоимость: ${price.toFixed(2)} ₽\n`;
+    text += `━━━━━━━━━━━━━━━━━━━\n\n`;
+    text += `👤 Продавец: ${order.seller}\n`;
+    text += `👥 Покупатель: ${order.buyer}\n`;
+    if (order.phone) {
+      text += `📱 Телефон: ${order.phone}\n`;
+    }
+    if (order.additional_info) {
+      text += `\n━━━━━━━━━━━━━━━━━━━\n`;
+      text += `ДОПОЛНИТЕЛЬНО К ЗАКАЗУ:\n`;
+      text += `${order.additional_info}\n`;
+    }
+    text += `\n━━━━━━━━━━━━━━━━━━━\n`;
+    text += `    Спасибо за покупку!\n`;
+    text += `━━━━━━━━━━━━━━━━━━━`;
+    return text;
+  };
+
+  const handleCreateOrder = async () => {
+    if (newOrder.productId && newOrder.seller && newOrder.buyer) {
+      try {
+        const response = await fetch(ORDERS_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newOrder)
+        });
+        const order = await response.json();
+        fetchOrders();
+        setSelectedReceipt(order);
+        setReceiptText(generateReceiptText(order));
+        setIsReceiptDialogOpen(true);
+        setNewOrder({ productId: 0, seller: '', buyer: '', phone: '', additionalInfo: '' });
+        toast({ title: 'Заказ создан', description: `Номер заказа: ${order.order_number}` });
+      } catch (error) {
+        toast({ title: 'Ошибка', description: 'Не удалось создать заказ', variant: 'destructive' });
+      }
+    }
+  };
+
+  const handleSearchReceipt = async () => {
+    try {
+      const response = await fetch(`${ORDERS_API}?orderNumber=${searchReceipt}`);
+      if (response.ok) {
+        const order = await response.json();
+        setSelectedReceipt(order);
+        setReceiptText(generateReceiptText(order));
+        setIsReceiptDialogOpen(true);
+      } else {
+        toast({ title: 'Чек не найден', description: 'Заказ с таким номером не существует', variant: 'destructive' });
+      }
+    } catch (error) {
+      toast({ title: 'Ошибка', description: 'Не удалось найти чек', variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteReceipt = async (orderNumber: string) => {
+    try {
+      await fetch(`${ORDERS_API}?orderNumber=${orderNumber}`, { method: 'DELETE' });
+      fetchOrders();
+      toast({ title: 'Чек удален', description: 'Заказ удален из системы' });
+    } catch (error) {
+      toast({ title: 'Ошибка', description: 'Не удалось удалить чек', variant: 'destructive' });
+    }
+  };
+
+  const copyReceiptToClipboard = () => {
+    navigator.clipboard.writeText(receiptText);
+    toast({ title: 'Скопировано!', description: 'Чек скопирован в буфер обмена' });
   };
 
   if (!isLoggedIn) {
@@ -241,65 +344,68 @@ const Index = () => {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {products.map((product) => (
-                <Card key={product.id} className="hover:shadow-lg transition-shadow">
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      <span>{product.name}</span>
-                      <span className="text-primary font-bold">{product.price} ₽</span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground mb-4">{product.description}</p>
-                    <div className="flex gap-2">
-                      <Dialog open={isProductDialogOpen && editingProduct?.id === product.id} onOpenChange={(open) => {
-                        setIsProductDialogOpen(open);
-                        if (!open) setEditingProduct(null);
-                      }}>
-                        <DialogTrigger asChild>
-                          <Button variant="outline" size="sm" onClick={() => setEditingProduct(product)} className="flex-1">
-                            <Icon name="Pencil" size={14} className="mr-1" />
-                            Редактировать
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Редактирование товара</DialogTitle>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                            <div className="space-y-2">
-                              <Label>Название</Label>
-                              <Input
-                                value={editingProduct?.name || ''}
-                                onChange={(e) => setEditingProduct(editingProduct ? { ...editingProduct, name: e.target.value } : null)}
-                              />
+              {products.map((product) => {
+                const price = typeof product.price === 'string' ? parseFloat(product.price) : product.price;
+                return (
+                  <Card key={product.id} className="hover:shadow-lg transition-shadow">
+                    <CardHeader>
+                      <CardTitle className="flex items-center justify-between">
+                        <span>{product.name}</span>
+                        <span className="text-primary font-bold">{price.toFixed(2)} ₽</span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-muted-foreground mb-4">{product.description}</p>
+                      <div className="flex gap-2">
+                        <Dialog open={isProductDialogOpen && editingProduct?.id === product.id} onOpenChange={(open) => {
+                          setIsProductDialogOpen(open);
+                          if (!open) setEditingProduct(null);
+                        }}>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" size="sm" onClick={() => setEditingProduct(product)} className="flex-1">
+                              <Icon name="Pencil" size={14} className="mr-1" />
+                              Редактировать
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Редактирование товара</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                              <div className="space-y-2">
+                                <Label>Название</Label>
+                                <Input
+                                  value={editingProduct?.name || ''}
+                                  onChange={(e) => setEditingProduct(editingProduct ? { ...editingProduct, name: e.target.value } : null)}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Стоимость</Label>
+                                <Input
+                                  type="number"
+                                  value={editingProduct?.price || ''}
+                                  onChange={(e) => setEditingProduct(editingProduct ? { ...editingProduct, price: Number(e.target.value) } : null)}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Описание</Label>
+                                <Textarea
+                                  value={editingProduct?.description || ''}
+                                  onChange={(e) => setEditingProduct(editingProduct ? { ...editingProduct, description: e.target.value } : null)}
+                                />
+                              </div>
+                              <Button onClick={handleEditProduct} className="w-full">Сохранить</Button>
                             </div>
-                            <div className="space-y-2">
-                              <Label>Стоимость</Label>
-                              <Input
-                                type="number"
-                                value={editingProduct?.price || ''}
-                                onChange={(e) => setEditingProduct(editingProduct ? { ...editingProduct, price: Number(e.target.value) } : null)}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Описание</Label>
-                              <Textarea
-                                value={editingProduct?.description || ''}
-                                onChange={(e) => setEditingProduct(editingProduct ? { ...editingProduct, description: e.target.value } : null)}
-                              />
-                            </div>
-                            <Button onClick={handleEditProduct} className="w-full">Сохранить</Button>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                      <Button variant="destructive" size="sm" onClick={() => handleDeleteProduct(product.id)}>
-                        <Icon name="Trash2" size={14} />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                          </DialogContent>
+                        </Dialog>
+                        <Button variant="destructive" size="sm" onClick={() => handleDeleteProduct(product.id)}>
+                          <Icon name="Trash2" size={14} />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           </TabsContent>
 
@@ -319,11 +425,14 @@ const Index = () => {
                       <SelectValue placeholder="Выберите товар" />
                     </SelectTrigger>
                     <SelectContent>
-                      {products.map((product) => (
-                        <SelectItem key={product.id} value={String(product.id)}>
-                          {product.name} - {product.price} ₽
-                        </SelectItem>
-                      ))}
+                      {products.map((product) => {
+                        const price = typeof product.price === 'string' ? parseFloat(product.price) : product.price;
+                        return (
+                          <SelectItem key={product.id} value={String(product.id)}>
+                            {product.name} - {price.toFixed(2)} ₽
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
@@ -341,6 +450,23 @@ const Index = () => {
                     value={newOrder.buyer}
                     onChange={(e) => setNewOrder({ ...newOrder, buyer: e.target.value })}
                     placeholder="Имя покупателя"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Номер телефона (необязательно)</Label>
+                  <Input
+                    value={newOrder.phone}
+                    onChange={(e) => setNewOrder({ ...newOrder, phone: e.target.value })}
+                    placeholder="+7 900 123-45-67"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Дополнительно к заказу (необязательно)</Label>
+                  <Textarea
+                    value={newOrder.additionalInfo}
+                    onChange={(e) => setNewOrder({ ...newOrder, additionalInfo: e.target.value })}
+                    placeholder="Комментарии, пароль или другая информация"
+                    rows={3}
                   />
                 </div>
                 <Button onClick={handleCreateOrder} className="w-full" size="lg">
@@ -382,13 +508,13 @@ const Index = () => {
                   </Card>
                 ) : (
                   orders.map((order) => (
-                    <Card key={order.id} className="hover:shadow-md transition-shadow">
+                    <Card key={order.order_number} className="hover:shadow-md transition-shadow">
                       <CardContent className="py-4">
                         <div className="flex items-center justify-between">
                           <div>
-                            <div className="font-bold text-lg">{order.id}</div>
-                            <div className="text-sm text-muted-foreground">{order.productName}</div>
-                            <div className="text-sm">{order.date}</div>
+                            <div className="font-bold text-lg">{order.order_number}</div>
+                            <div className="text-sm text-muted-foreground">{order.product_name}</div>
+                            <div className="text-sm">{new Date(order.created_at).toLocaleString('ru-RU')}</div>
                           </div>
                           <div className="flex gap-2">
                             <Button
@@ -396,13 +522,14 @@ const Index = () => {
                               size="sm"
                               onClick={() => {
                                 setSelectedReceipt(order);
+                                setReceiptText(generateReceiptText(order));
                                 setIsReceiptDialogOpen(true);
                               }}
                             >
                               <Icon name="Eye" size={14} className="mr-1" />
                               Просмотр
                             </Button>
-                            <Button variant="destructive" size="sm" onClick={() => handleDeleteReceipt(order.id)}>
+                            <Button variant="destructive" size="sm" onClick={() => handleDeleteReceipt(order.order_number)}>
                               <Icon name="Trash2" size={14} />
                             </Button>
                           </div>
@@ -426,29 +553,14 @@ const Index = () => {
             </DialogTitle>
           </DialogHeader>
           {selectedReceipt && (
-            <div className="space-y-4 border-2 border-dashed border-gray-300 rounded-lg p-6 bg-white">
-              <div className="text-center border-b pb-3">
-                <h3 className="font-bold text-2xl">{selectedReceipt.id}</h3>
-                <p className="text-sm text-muted-foreground">{selectedReceipt.date}</p>
+            <div className="space-y-4">
+              <div className="bg-gray-50 border-2 border-gray-300 rounded-lg p-4">
+                <pre className="font-mono text-sm whitespace-pre-wrap">{receiptText}</pre>
               </div>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Товар:</span>
-                  <span className="font-medium">{selectedReceipt.productName}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Продавец:</span>
-                  <span className="font-medium">{selectedReceipt.seller}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Покупатель:</span>
-                  <span className="font-medium">{selectedReceipt.buyer}</span>
-                </div>
-                <div className="flex justify-between border-t pt-2 text-lg">
-                  <span className="font-bold">Итого:</span>
-                  <span className="font-bold text-primary">{selectedReceipt.price} ₽</span>
-                </div>
-              </div>
+              <Button onClick={copyReceiptToClipboard} className="w-full" size="lg">
+                <Icon name="Copy" size={18} className="mr-2" />
+                Скопировать чек для отправки
+              </Button>
             </div>
           )}
         </DialogContent>
