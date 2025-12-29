@@ -52,7 +52,6 @@ const Index = () => {
     productId: 0, 
     seller: '', 
     buyer: '', 
-    phone: '', 
     additionalInfo: '' 
   });
 
@@ -157,9 +156,6 @@ const Index = () => {
     text += `━━━━━━━━━━━━━━━━━━━\n\n`;
     text += `👤 Продавец: ${order.seller}\n`;
     text += `👥 Покупатель: ${order.buyer}\n`;
-    if (order.phone) {
-      text += `📱 Телефон: ${order.phone}\n`;
-    }
     if (order.additional_info) {
       text += `\n━━━━━━━━━━━━━━━━━━━\n`;
       text += `ДОПОЛНИТЕЛЬНО К ЗАКАЗУ:\n`;
@@ -184,7 +180,7 @@ const Index = () => {
         setSelectedReceipt(order);
         setReceiptText(generateReceiptText(order));
         setIsReceiptDialogOpen(true);
-        setNewOrder({ productId: 0, seller: '', buyer: '', phone: '', additionalInfo: '' });
+        setNewOrder({ productId: 0, seller: '', buyer: '', additionalInfo: '' });
         toast({ title: 'Заказ создан', description: `Номер заказа: ${order.order_number}` });
       } catch (error) {
         toast({ title: 'Ошибка', description: 'Не удалось создать заказ', variant: 'destructive' });
@@ -225,8 +221,8 @@ const Index = () => {
 
   if (!isLoggedIn) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md shadow-lg">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md shadow-xl border-slate-200">
           <CardHeader className="space-y-1">
             <div className="flex items-center justify-center mb-4">
               <Icon name="ShoppingCart" size={48} className="text-primary" />
@@ -266,8 +262,8 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <header className="bg-white border-b shadow-sm">
+    <div className="min-h-screen bg-slate-50">
+      <header className="bg-white border-b border-slate-200">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Icon name="ShoppingCart" size={32} className="text-primary" />
@@ -282,7 +278,7 @@ const Index = () => {
 
       <main className="container mx-auto px-4 py-8">
         <Tabs defaultValue="products" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 max-w-2xl mx-auto">
+          <TabsList className="grid w-full grid-cols-3 max-w-2xl mx-auto bg-white border border-slate-200">
             <TabsTrigger value="products" className="flex items-center gap-2">
               <Icon name="Package" size={18} />
               Товары
@@ -347,7 +343,7 @@ const Index = () => {
               {products.map((product) => {
                 const price = typeof product.price === 'string' ? parseFloat(product.price) : product.price;
                 return (
-                  <Card key={product.id} className="hover:shadow-lg transition-shadow">
+                  <Card key={product.id} className="hover:shadow-md transition-shadow border-slate-200">
                     <CardHeader>
                       <CardTitle className="flex items-center justify-between">
                         <span>{product.name}</span>
@@ -410,7 +406,7 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="orders" className="space-y-4">
-            <Card className="max-w-2xl mx-auto shadow-lg">
+            <Card className="max-w-2xl mx-auto shadow-md border-slate-200">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Icon name="ShoppingBag" size={24} />
@@ -453,20 +449,12 @@ const Index = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Номер телефона (необязательно)</Label>
-                  <Input
-                    value={newOrder.phone}
-                    onChange={(e) => setNewOrder({ ...newOrder, phone: e.target.value })}
-                    placeholder="+7 900 123-45-67"
-                  />
-                </div>
-                <div className="space-y-2">
                   <Label>Дополнительно к заказу (необязательно)</Label>
                   <Textarea
                     value={newOrder.additionalInfo}
                     onChange={(e) => setNewOrder({ ...newOrder, additionalInfo: e.target.value })}
-                    placeholder="Комментарии, пароль или другая информация"
-                    rows={3}
+                    placeholder="Номер телефона, пароль, комментарии"
+                    rows={4}
                   />
                 </div>
                 <Button onClick={handleCreateOrder} className="w-full" size="lg">
@@ -479,7 +467,7 @@ const Index = () => {
 
           <TabsContent value="receipts" className="space-y-4">
             <div className="max-w-2xl mx-auto space-y-4">
-              <Card>
+              <Card className="border-slate-200">
                 <CardHeader>
                   <CardTitle>Поиск чека</CardTitle>
                 </CardHeader>
@@ -500,7 +488,7 @@ const Index = () => {
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">Все чеки</h3>
                 {orders.length === 0 ? (
-                  <Card>
+                  <Card className="border-slate-200">
                     <CardContent className="py-8 text-center text-muted-foreground">
                       <Icon name="Receipt" size={48} className="mx-auto mb-2 opacity-30" />
                       <p>Пока нет заказов</p>
@@ -508,7 +496,7 @@ const Index = () => {
                   </Card>
                 ) : (
                   orders.map((order) => (
-                    <Card key={order.order_number} className="hover:shadow-md transition-shadow">
+                    <Card key={order.order_number} className="hover:shadow-md transition-shadow border-slate-200">
                       <CardContent className="py-4">
                         <div className="flex items-center justify-between">
                           <div>
